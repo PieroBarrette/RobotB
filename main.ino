@@ -11,28 +11,31 @@ Inclure les librairies de functions que vous voulez utiliser
 **************************************************************************** */
 
 #include <LibRobus.h> // Essentielle pour utiliser RobUS
-#include <Arduino.h>
 
 
 /* ****************************************************************************
 Variables globales et defines
 **************************************************************************** */
-double circonferenceRoueRB = 24.19; //Pour une meilleure précision, mettre une circonférence pour chaque roue et ajuster la fonction tourner
+const double circonferenceRoueRB = 24.19; //Pour une meilleure précision, mettre une circonférence pour chaque roue et ajuster la fonction tourner
 
-double circonferenceCercleUneRoue = 116.73;
-double circonferenceCercleDeuxRoues = 58.119;
+const double circonferenceCercleUneRoue = 116.43;//116.73
+const double circonferenceCercleDeuxRoues = 58.119;
 
-double vitesseRoueGauche = 0.5;
-double vitesseRoueDroite = 0.5;
+const double vitesseRoueGauche = 0.40;
+
 double vitesseVirageG = 0.3;
 double vitesseVirageD = 0.3;
 
 double pourcentageAcceleration = 0.20;
 
 #define Nbre_Encodeur_roue 3200
-#define distAccMax 1000
-#define vitesseInitiale 0.35
 
+#define distAccMax 1000
+#define pourcentageInitiale 0.35
+
+#define kp 0.001
+#define ki 0.0002
+#define tempsDeCycle 250
 
 /* ****************************************************************************
 Vos propres fonctions sont creees ici
@@ -41,79 +44,148 @@ Vos propres fonctions sont creees ici
 //roueGouD varie entre {0,1}
 void TourneUneRoue(double degres,int roueGouD){ 
   double distanceAparcourirEnCm = degres/360 * circonferenceCercleUneRoue;
-  double nbreDePulse = distanceAparcourirEnCm/circonferenceRoueRB * Nbre_Encodeur_roue;
-  Serial.println(nbreDePulse);
-  ENCODER_Reset(roueGouD);
+  double nbreDePulseTotal = distanceAparcourirEnCm/circonferenceRoueRB * Nbre_Encodeur_roue;
+  EncoderReset();
   MOTOR_SetSpeed(roueGouD,0.3);
   bool activationDesRoues = true;
   while(activationDesRoues){
-    if(ENCODER_Read(roueGouD) >= nbreDePulse){ 
+    Serial.println(ENCODER_Read(roueGouD));
+    if(ENCODER_Read(roueGouD) >= nbreDePulseTotal){ 
       MOTOR_SetSpeed(roueGouD,0);
       activationDesRoues = false;
     }
-    if(AX_IsBumper(3)){
-    Arretdurgence();
-    activationDesRoues = false;
+    if(ROBUS_IsBumper(3)){
+      Arretdurgence();
+      activationDesRoues = false;
     }
   }
-  delay(50);
 }
 void TournerDeuxRoues(double degres, int gaucheOuDroite){ //gauche == -1, droite == 1
   double distanceAparcourirEnCm = degres/360 * circonferenceCercleDeuxRoues;
-  double nbreDePulse = distanceAparcourirEnCm/circonferenceRoueRB * 3200;
+  double nbreDePulseTotal = distanceAparcourirEnCm/circonferenceRoueRB * 3200;
   ENCODER_Reset(0);
   ENCODER_Reset(1);
   MOTOR_SetSpeed(0,vitesseVirageG * gaucheOuDroite);
   MOTOR_SetSpeed(1,vitesseVirageD * (-gaucheOuDroite));
   bool activationDesRoues = true;
   while(activationDesRoues){
-    if(ENCODER_Read(0) >= nbreDePulse || ENCODER_Read(1) >= nbreDePulse){
+    if(ENCODER_Read(0) >= nbreDePulseTotal || ENCODER_Read(1) >= nbreDePulseTotal){
       MotorSpeed(0);
       activationDesRoues = false;
     }
-    if(AX_IsBumper(3)){
+    if(ROBUS_IsBumper(3)){
       Arretdurgence();
       activationDesRoues = false;
     }
   }
 }
-void Avancer(double distanceAparcourirEnCm){
+/*void Avancer2(double distanceAparcourirEnCm){
   double distAcc = 0;
-  double nbreDePulse = distanceAparcourirEnCm/circonferenceRoueRB * 3200;
-  if(nbreDePulse>=2000){
+  double nbreDePulseTotal = distanceAparcourirEnCm/circonferenceRoueRB * 3200;
+  if(nbreDePulseTotal>=2000){
     distAcc = distAccMax;
   }
   else{
-    distAcc = nbreDePulse/2;
+    distAcc = nbreDePulseTotal/2;
   }
-  FaireRoulerRobot((int)nbreDePulse,(int)distAcc); 
+  FaireRoulerRobot((int)nbreDePulseTotal,(int)distAcc); 
   delay(50);
 }
-void FaireRoulerRobot(int nbreDePulse, int distAcc){
+void FaireRoulerRobot(int nbreDePulseTotal, int distAcc){
   EncoderReset();
   Motor2Speed(vitesseRoueGauche,vitesseRoueDroite);
   bool activationDesRoues = true;
   while(activationDesRoues){
-    if(ENCODER_Read(0) > nbreDePulse - distAcc){
-      if(ENCODER_Read(0) > nbreDePulse - distAcc*vitesseInitiale){
-        Motor2Speed(vitesseRoueGauche*vitesseInitiale,vitesseRoueDroite*vitesseInitiale);
+    if(ENCODER_Read(0) > nbreDePulseTotal - distAcc){
+      if(ENCODER_Read(0) > nbreDePulseTotal - distAcc*pourcentageInitiale){
+        Motor2Speed(vitesseRoueGauche*pourcentageInitiale,vitesseRoueDroite*pourcentageInitiale);
       }
       else{
-        Motor2Speed(vitesseRoueGauche*(nbreDePulse-ENCODER_Read(0))/distAcc, vitesseRoueDroite*(nbreDePulse-ENCODER_Read(0))/distAcc);
+        Motor2Speed(vitesseRoueGauche*(nbreDePulseTotal-ENCODER_Read(0))/distAcc, vitesseRoueDroite*(nbreDePulseTotal-ENCODER_Read(0))/distAcc);
       }
     }
-    if(ENCODER_Read(0) >= nbreDePulse){ //la roue a parcouru la bonne distance, donc elle s'arrete
+    if(ENCODER_Read(0) >= nbreDePulseTotal){ //la roue a parcouru la bonne distance, donc elle s'arrete
       MotorSpeed(0);
       activationDesRoues = false;
       Serial.println("JE DEVRAIS ETRE ARRETER");
     }
-    if(AX_IsBumper(3)){ //arret d'urgence
+    if(ROBUS_IsBumper(3)){ //arret d'urgence
       Arretdurgence();
       activationDesRoues = false;
     }
     Serial.println(ENCODER_Read(0));
   }
+}*/
+void Avancer(float distanceAparcourirEnCm){
+  double nbreDePulseTotal = distanceAparcourirEnCm/circonferenceRoueRB * 3200;
+  Serial.println(nbreDePulseTotal);
+  AsservissementDesMoteurs(nbreDePulseTotal,vitesseRoueGauche, tempsDeCycle);
 }
+void AsservissementDesMoteurs(int nbreDePulseTotal,double vitesseG,int delay_){
+  bool activationDesRoues=true;
+  double vitesseD=vitesseG;
+  double vitesseCalculG,vitesseCalculD;
+  int nbreDeCycle = 0;
+  int pulse_par_cycle;
+  int pulseTotaleDroit = 0;
+  EncoderReset();
+  Motor2Speed(vitesseG,vitesseD);
+  while(activationDesRoues){
+    activationDesRoues = DelayAsservissement(delay_,nbreDePulseTotal);
+    if(!activationDesRoues){
+      MotorSpeed(0);
+    }
+    else{
+      if(++nbreDeCycle==1){
+        pulse_par_cycle = ENCODER_Read(0);
+        Serial.println("le nombre de pulse par cycle est : ");
+        Serial.println(pulse_par_cycle);
+      }
+      vitesseCalculG = CalculVitessse(delay_,pulse_par_cycle);
+      vitesseCalculD = CalculVitessse(delay_,(ENCODER_Read(1)-pulseTotaleDroit));
+      pulseTotaleDroit=ENCODER_Read(1);
+
+      vitesseD += (vitesseCalculG-vitesseCalculD)*kp+(/*(nbreDeCycle*pulse_par_cycle)*/ENCODER_Read(0)-ENCODER_Read(1))*ki;
+      MOTOR_SetSpeed(1,vitesseD);
+
+      Serial.println("vitesseCalculD");
+      Serial.println(vitesseCalculD);
+      Serial.println("vitesseCalculG");
+      Serial.println(vitesseCalculG);
+      Serial.println("(nbreDeCycle*pulse_par_cycle)-ENCODER_Read(1)");
+      Serial.println(ENCODER_Read(0)-ENCODER_Read(1));
+      if(ROBUS_IsBumper(3)){
+        Arretdurgence();
+        activationDesRoues = false;
+      }
+    }
+    
+    /*else if(ENCODER_Read(0)>=nbreDePulseTotal){
+      activationDesRoues = false;
+      Serial.println(ENCODER_Read(0));
+    }*/
+  }
+}
+bool DelayAsservissement(int delay_, int nbreDePulseTotal){
+  bool activationDesRoues = true;
+  for (int i = 0;i<delay_;i+=10){
+    if (ENCODER_Read(0)>=nbreDePulseTotal){
+      activationDesRoues=false;
+      i += delay_;
+      Serial.println("La distance totale a ete parcourue. ");
+      Serial.println(ENCODER_Read(0));
+    }
+    else
+      delay(10);
+  }
+  Serial.println("Le robot a fait un cycle");
+  return activationDesRoues;
+}
+double CalculVitessse(int delay_,int nbreDePulseTotal){
+  double vitesse = nbreDePulseTotal/delay_;
+  return vitesse;
+}
+
 void Arretdurgence(){
   MotorSpeed(0);
   Serial.println("Arret d'urgence");
@@ -130,24 +202,13 @@ void EncoderReset(){
   ENCODER_Reset(0);
   ENCODER_Reset(1);
 }
-void Avancer2(float distanceAparcourirEnCm){
-  double nbreDePulse = distanceAparcourirEnCm/circonferenceRoueRB * 3200;
-  EncoderReset();
-  bool activationDesRoues = true;
-  Motor2Speed(vitesseRoueGauche,vitesseRoueDroite);
-  while(activationDesRoues){
-    if(ENCODER_Read(0)>=nbreDePulse || ENCODER_Read(1)>=nbreDePulse){
-      activationDesRoues = false ;
-    }
-  }
-  MotorSpeed(0);
-}
 /* ****************************************************************************
 Fonctions d'initialisation (setup)
 **************************************************************************** */
 
 void setup(){
   BoardInit();
+  
 }
 
 
@@ -158,15 +219,13 @@ Fonctions de boucle infini (loop())
 
 void loop() {
   // SOFT_TIMER_Update(); // A decommenter pour utiliser des compteurs logiciels
-
-
-  if(AX_IsBumper(0)){
+  if(ROBUS_IsBumper(0)){
     TourneUneRoue(90,1);
   }
-  if(AX_IsBumper(1)){
+  if(ROBUS_IsBumper(1)){
     TourneUneRoue(90,0);
   }
-  if(AX_IsBumper(2)){
+  if(ROBUS_IsBumper(2)){
     Avancer(213.25);
     TourneUneRoue(90,1);
     Avancer(31.5);
@@ -179,8 +238,7 @@ void loop() {
     TourneUneRoue(21.8,0);
     // ... 
     MotorSpeed(0);
-    
   }
-
+  
   delay(10);// Delais pour décharger le CPU
 }
