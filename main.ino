@@ -27,7 +27,7 @@ const double circonferenceCercleDeuxRoues = 58.119; //58.119
 
 float vitesseVirageT = 0.3;
 
-float vitesse  = 0.7;
+float vitesse  = 0.5;
 
 /* ****************************************************************************
 Vos propres fonctions sont creees ici
