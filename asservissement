@@ -1,0 +1,142 @@
+void setup()
+{
+  BoardInit();
+  MOTOR_SetSpeed(1, 0.5);
+  MOTOR_SetSpeed(0, 0.5);
+  ENCODER_ReadReset(1);
+  ENCODER_ReadReset(0);
+}
+
+void avancer(float distance);
+void virageD( float angle);
+void virageG( float angle);
+float VD, VG=0.585;
+float VID=0.5;
+float t=250;
+float CD, CD1, CG, CG1, CE, CE1;
+float kp=0.0001, ki = 0.00002 ;
+float k=0;
+float nb_cycle = 0 ;
+
+void loop()
+{
+  avancer(210);
+
+  virageG(90);
+
+  avancer(30);
+
+  virageD(90);
+
+  avancer(25);
+
+  virageD(90);
+
+  avancer(35);
+
+  virageG(90);
+
+  avancer(15);
+
+  virageD(40);
+
+  avancer(50);
+
+  virageG(80);
+
+  avancer(75);
+
+  virageD(45);
+
+  avancer(40);
+
+  virageD(20);
+
+  avancer(80);
+ 
+  MOTOR_SetSpeed(0,0);
+  MOTOR_SetSpeed(1,0);
+  ENCODER_Reset(0);
+  ENCODER_Reset(1);
+
+ while (true)
+ {}
+  
+  
+
+  
+
+  delay(10);
+}
+
+void avancer(float distance)
+{
+  MOTOR_SetSpeed(1,0);
+  MOTOR_SetSpeed(0,0);
+  ENCODER_Reset(0);
+  ENCODER_Reset(1);
+  CD = 0, CG = 0;
+  delay(500);
+  float clic;
+  clic=distance*133,33;
+
+   while (CD < clic)
+  {
+    MOTOR_SetSpeed(1, VID);
+    VG=(VG+k);
+    MOTOR_SetSpeed(0,VG);
+    delay(t);
+    CD=ENCODER_Read(1);
+    CG=ENCODER_Read(0);
+    CE = CD - CG;
+    
+    nb_cycle++;
+    CG1 = CG/nb_cycle;
+    CD1 = CD/nb_cycle;
+    CE1 = CD1 - CG1;
+    
+    k = (ki*CE1 + kp*CE1);
+  } 
+}
+
+void virageD( float angle)
+{//8ieme virage. 12,5 a droite
+  
+  MOTOR_SetSpeed(1,0);
+  MOTOR_SetSpeed(0,0);
+  ENCODER_Reset(0);
+  ENCODER_Reset(1);
+  CD = 0, CG = 0;
+  delay(500);
+  int clic;
+  #define convert 48
+  clic=angle*convert;
+
+  while(CD < clic)
+  {
+    MOTOR_SetSpeed(0, 0.5);
+    MOTOR_SetSpeed(1, 0);
+    CD = ENCODER_Read(0);
+  }
+}
+
+void virageG(float angle)
+{//8ieme virage. 12,5 a droite
+  
+  MOTOR_SetSpeed(1,0);
+  MOTOR_SetSpeed(0,0);
+  ENCODER_Reset(0);
+  ENCODER_Reset(1);
+  CD = 0, CG = 0;
+  delay(500);
+  int clic;
+  #define convert 46
+  clic=angle*convert;
+
+  while(CG < clic)
+  {
+    MOTOR_SetSpeed(1, 0.5);
+    MOTOR_SetSpeed(0, 0);
+    CG = ENCODER_Read(1);
+  }
+}
