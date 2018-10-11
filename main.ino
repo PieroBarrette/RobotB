@@ -53,34 +53,78 @@ void tourner(float degre, int id){
 void tourner2(float degre){
   double distance = degre/360 * circonferenceCercleDeuxRoues;
   double pulses = distance/circonferenceRoue * Encodeur_roue;
+  if (pulses<0){
+    pulses *= -1;
+  }
   ENCODER_Reset(1);
   ENCODER_Reset(0);
+  if (distance>0){
   MOTOR_SetSpeed(0, -vitesseVirageT);
   MOTOR_SetSpeed(1, vitesseVirageT);
-  asservissement(pulses, vitesseVirageT);
+  asservissementT(pulses, -vitesseVirageT, vitesseVirageT);
+  }
+  if (distance<0){
+  MOTOR_SetSpeed(0, vitesseVirageT);
+  MOTOR_SetSpeed(1, -vitesseVirageT);
+  asservissementT(pulses, vitesseVirageT, -vitesseVirageT);
+  }
+}
+void asservissementT(double pulses, float vitesseG, float vitesseD){
+  bool activationDesRoues=true;
+  delay(50);
+  while (activationDesRoues){
+    long pulsesG = ENCODER_Read(0);
+    long pulsesD = ENCODER_Read(1);
+    if (pulsesG<0){
+      pulsesG = pulsesG * -1;
+    }
+    if (pulsesD<0){
+      pulsesD = pulsesD * -1;
+    }
+    if (pulsesG >= pulses || pulsesD >= pulses){
+      activationDesRoues = false;
+    }
+    float ratio = (pulsesG/pulsesD);
+    float vitesseDcorrigee = vitesseD*ratio;
+    MOTOR_SetSpeed(1, vitesseDcorrigee);
+    MOTOR_SetSpeed(0, vitesseG);
+    if (ROBUS_IsBumper(2)){
+      activationDesRoues = false;
+    }
+    }
+  MOTOR_SetSpeed(1, 0);
+  MOTOR_SetSpeed(0, 0);
 }
 
 void Avancer(float distance){
  double pulses = distance/circonferenceRoue * 3200;
  ENCODER_Reset(0);
  ENCODER_Reset(1);
-  MOTOR_SetSpeed(0,vitesse);
-  MOTOR_SetSpeed(1,vitesse);
+  MOTOR_SetSpeed(0,vitesse/2);
+  MOTOR_SetSpeed(1,vitesse/2);
  asservissement(pulses, vitesse); 
+ if (ROBUS_IsBumper(2)){
+    Arretdurgence();
+    ;
+  }
 }
 
-void asservissement(double pulses, float vitesse){
+void asservissement(double pulses, float vitesseG){
   bool activationDesRoues=true;
-  delay(20);
+  delay(50);
   while (activationDesRoues){
-    long pulsesG = abs(ENCODER_Read(0));
-    long pulsesD = abs(ENCODER_Read(1));
+    long pulsesG = ENCODER_Read(0);
+    long pulsesD = ENCODER_Read(1);
     if (pulsesG >= pulses || pulsesD >= pulses){
       activationDesRoues = false;
     }
     float ratio = (pulsesG/pulsesD);
-    float vitesseD = (vitesse*ratio);
+    float vitesseD = (vitesseG*ratio);
     MOTOR_SetSpeed(1, vitesseD);
+    MOTOR_SetSpeed(0, vitesseG);
+    if (ROBUS_IsBumper(2)){
+      activationDesRoues = false;
+    }
     }
   MOTOR_SetSpeed(1, 0);
   MOTOR_SetSpeed(0, 0);
@@ -93,26 +137,26 @@ void Arretdurgence(){
     MOTOR_SetSpeed(1,0);
 }
 void DefiParcours(){
-  Avancer(220);//213.225
-  tourner(90,1);
-  Avancer(31.45);
-  tourner(90,0);
-  Avancer(24.45);//26.45
-  tourner(90,0);
-  Avancer(30.3235);//30.3235
-  tourner(90,1);
-  Avancer(20.5765);//22.5765    //Pour bien s'alligner avec le virage dans la trajecoire diagonale
-  tourner(45,0);
-  Avancer(30.0985);//32.0985
-  tourner(90,1);
-  Avancer(53.225);//53.225
-  tourner(47,0);//45
+  Avancer(223);
+  tourner2(90); //gauche
+  Avancer(40);
+  tourner2(-90);  //droite
+  Avancer(40);
+  tourner2(-90);  //droite
+  Avancer(40);
+  tourner2(90); //gauche
+  Avancer(20);
+  tourner2(-45);   //droite
+  Avancer(40);
+  tourner2(90); //gauche
+  Avancer(60);
+  tourner2(-45);  //droite
   Avancer(32);
-  tourner(22,0);//12.5
+  tourner2(-22.5);  //droite
   Avancer(77);
   Arretdurgence();
   tourner2(180);//**************************************************
-  Avancer(77);
+  /*Avancer(77);
   tourner(18,1);//12.5
   Avancer(32);
   tourner(45,1);
@@ -128,7 +172,7 @@ void DefiParcours(){
   tourner(95,1);
   Avancer(31.45);
   tourner(90,0);//90
-  Avancer(223.225);//213.225
+  Avancer(223.225);//213.225*/
 
   Arretdurgence();
 }
@@ -149,6 +193,9 @@ Fonctions de boucle infini (loop())
 
 void loop(){
   if(ROBUS_IsBumper(3)){
-   DefiParcours();
+   tourner2(-180);
+  }
+  if (ROBUS_IsBumper(2)){
+    Arretdurgence();
   }
 }
